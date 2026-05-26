@@ -112,10 +112,14 @@ SelectText() {
 
 ;# Get selected text from clipboard with validation
 GetTextFromClip() {
-    global _activeWin
+    global _activeWin, _oldClipboard
 
     _activeWin := WinGetTitle("A")
-    ; _oldClipboard should already be saved by SelectText()
+
+    ; If user did manual selection (no SelectText call), preserve clipboard here.
+    if (_oldClipboard == "") {
+        _oldClipboard := A_Clipboard
+    }
 
     A_Clipboard := ""
     Send "^c"

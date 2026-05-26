@@ -90,6 +90,21 @@ default_mode = mode_chat_completion          ; OpenAI (default)
 
 Individual prompts can override the mode by setting `mode=mode_gemini` in their prompt section.
 
+### Review Before Send
+
+Optionally show a modal review window before any API call:
+
+```ini
+[settings]
+confirm_before_send=false
+```
+
+Per-prompt override (inside a `[prompt_*]` section):
+
+```ini
+confirm_before_send=true
+```
+
 
 ## Compatibility
 Tested on:

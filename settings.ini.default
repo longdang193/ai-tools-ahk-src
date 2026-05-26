@@ -7,6 +7,7 @@
 [settings]
 default_api_key=
 default_api_key_gemini=
+confirm_before_send=true
 
 ;------------------------------------------------------------------------------
 ; Hotkeys  
@@ -20,10 +21,10 @@ default_api_key_gemini=
 ;                   the prompt menu
 ; menu_hotkey     : (Required) The hotkey to display the prompt menu
 ;------------------------------------------------------------------------------
-hotkey_1        = ^+j
-hotkey_1_prompt = prompt_spelling
-hotkey_2        = ^+k   
-menu_hotkey     = ^!+k  
+hotkey_1        = 
+hotkey_1_prompt = prompt_prompt_rewrite
+hotkey_2        =
+menu_hotkey     = ^+k
  
 ;------------------------------------------------------------------------------
 ; Misc. Settings
@@ -37,7 +38,7 @@ menu_hotkey     = ^!+k
 ; connect_timeout   : (Optional) The number of seconds to wait for connection
 ; send_timeout      : (Optional) The number of seconds to wait for send
 ;------------------------------------------------------------------------------
-default_mode      = mode_chat_completion
+default_mode      = mode_chat_completion_9router
 reload_on_change  = false
 timeout           = 120
 connect_timeout   = 10
@@ -55,14 +56,14 @@ send_timeout      = 30
 ; - = separator
 ;------------------------------------------------------------------------------
 [popup_menu]
-prompt_spelling
+prompt_prompt_rewrite
+prompt_check_syntax
 prompt_writing
 prompt_shorter
 prompt_longer
 prompt_tone_professional
 prompt_simplify
 -
-prompt_translate
 prompt_proof
 prompt_summarize
 prompt_explain
@@ -96,12 +97,12 @@ prompt_continue
 ;        new lines
 ;------------------------------------------------------------------------------
 
-[prompt_spelling]
-prompt_system="Correct the spelling and grammar of the given text using US English conventions. Provide only the revised text with no additional commentary or explanations.\n\n# Output Format\nThe output should be the corrected version of the text, formatted as a short sentence or paragraph, as appropriate to the original input length.\n# Notes\n- Ensure that all spelling and grammatical errors are corrected.\n- Maintain the original meaning and intent of the text.\n- Do not include explanations or notes, only the final corrected version."
-prompt="Correct the spelling (American English) and grammar of the following.\nInput: the caat in the hat\nThe cat in the hat.\nInput: The dog is black and white.\nOutput: The dog is black and white.\nInput: "
-prompt_end="\nOutput: "
-menu_text="Fix spelling && grammar"
+[prompt_prompt_rewrite]
+menu_text="Rewrite promp&t"
+replace_selected=True
 temperature=0
+prompt="You rewrite user-provided prompts to make them clearer, more complete, and easier for an LLM or coding assistant to execute.\n\nRules:\n- Preserve the user's original intent.\n- Fix grammar, wording, and ambiguity.\n- If prompt incomplete, enrich with reasonable context, missing constraints, expected output, success criteria.\n- Keep rewritten prompt concise; do not over-structure simple requests.\n- Make assumptions explicit only when they affect task.\n- Do not add fluff, apologies, unnecessary explanations.\n- Output only rewritten prompt.\n\nPreferred output:\n- For simple prompts: one clear paragraph or short bullet list.\n- For complex prompts: sections like Goal, Context, Inputs, Constraints, Output Format, Success Criteria.\n\nRewrite this prompt:\n\n"
+prompt_end="\n"
 
 [prompt_writing]
 prompt="Improve the writing for clarity and conciseness, and correct the spelling (American English) and grammar of the following.:\n\n"
@@ -123,19 +124,12 @@ menu_text="Change Tone - Professional"
 prompt="Simplify the following:\n\n"
 menu_text="Simplify language"
 
-[prompt_translate]
-prompt="Translate the following to English:\n\n"
-menu_text="Translate"
-response_type=popup 
-
 [prompt_proof]
-prompt_system="I want you act as a English proofreader. I will provide you texts and I would like you to review them for any spelling, grammar, or punctuation errors. Once you have finished reviewing the text, provide me with a very detailed bullet list of suggestions and modifications to make and reasons why."
-prompt="My text is the following: "
+prompt="Act as English proofreader.\n\nTask:\n- Review text for spelling, grammar, punctuation errors.\n- Output detailed bullet list of suggestions + modifications + reasons.\n\nMy text is the following: "
 menu_text="Proofread"
 replace_selected=False
 response_start="\n\n"
 temperature=0
-response_type=popup 
 
 [prompt_summarize]
 prompt="Summarize the following:\n\n"
@@ -143,7 +137,6 @@ menu_text="Summarize"
 replace_selected=False
 response_start="\n"
 temperature=0
-response_type=popup 
 
 [prompt_explain]
 prompt="Explain the following:\n\n"
@@ -151,7 +144,6 @@ menu_text="Explain this"
 replace_selected=False
 response_start="\n"
 temperature=0
-response_type=popup 
 
 [prompt_items]
 prompt="Summarize as a statement and identify any action items as a bullet list:\n\n"
@@ -159,11 +151,17 @@ menu_text="Find action items"
 replace_selected=False
 response_start="\n"
 temperature=0
-response_type=popup 
+
+[prompt_check_syntax]
+menu_text="Check synta&x"
+replace_selected=False
+temperature=0
+prompt="You check and fix syntax.\n\nRules:\n- Identify language from content (or say unknown).\n- If syntax invalid: output corrected code only (no explanations).\n- If syntax already valid: output original code unchanged.\n- Keep changes minimal: fix syntax only; do not refactor or rename.\n- Preserve formatting as much as possible.\n\nFix syntax errors in this code:\n\n"
+prompt_end="\n"
+response_start="\n"
 
 [prompt_code_optimize]
-prompt_system="You are an assistant to a software engineer. You will be given a code snippet and you will be asked to optimize it for time and space complexity."
-prompt="Improve and explain how to optimize the following code:\n\n"
+prompt="You are assistant to software engineer. Optimize code for time + space complexity.\n\nImprove and explain how to optimize following code:\n\n"
 prompt_end=""
 menu_text="Code - Optimize"
 replace_selected=False
@@ -172,7 +170,7 @@ response_end="\n<<<<\n"
 temperature=0
 
 [prompt_continue]
-prompt=""
+prompt="Continue writing from where this text ends. Match tone and style. Do not repeat. Output only continuation text:\n\n"
 replace_selected=False
 menu_text="Space& - Continue writting"
 response_start=" "
@@ -199,6 +197,23 @@ response_start=" "
 [mode_chat_completion]
 endpoint=https://api.openai.com/v1/chat/completions
 model="gpt-4.1-mini"
+max_tokens=16384
+temperature=0.2
+top_p=1
+frequency_penalty=0.0
+presence_penalty=0.0
+
+;------------------------------------------------------------------------------
+; 9Router (OpenAI-compatible Chat Completions proxy)
+;------------------
+; If 9Router exposes OpenAI-compatible /v1/chat/completions, use this mode.
+; Note: Current AI-Tools-AHK code path uses Chat Completions (not /v1/responses).
+; If your 9Router instance is configured for wire_api="responses" only, this
+; mode will not work without code changes (requires lib/API.ahk).
+;------------------------------------------------------------------------------
+[mode_chat_completion_9router]
+endpoint=http://127.0.0.1:20128/v1/chat/completions
+model="cx/gpt-5.2"
 max_tokens=16384
 temperature=0.2
 top_p=1

@@ -6,6 +6,141 @@ global _iMenu := ""
 global _iMenuItemParms := Map()
 global _displayResponse := false
 
+;# Read prompt section names in popup_menu order (excluding separators/comments)
+GetPopupMenuPromptNames() {
+    global SETTINGS_FILE
+    names := []
+
+    try {
+        menu_items := IniRead(SETTINGS_FILE, "popup_menu")
+    } catch {
+        return names
+    }
+
+    loop parse menu_items, "`n" {
+        promptName := Trim(A_LoopField, " `t`r")
+        if (promptName == "" || SubStr(promptName, 1, 1) == "#" || promptName == "-")
+            continue
+        names.Push(promptName)
+    }
+
+    return names
+}
+
+;# Strip AHK menu accelerator markers from a label (single &, keep literal && as &)
+StripMenuAccelerators(label) {
+    if (label == "")
+        return label
+
+    placeholder := Chr(0xE000)  ; private-use marker unlikely to appear
+    label := StrReplace(label, "&&", placeholder)
+    label := StrReplace(label, "&", "")
+    label := StrReplace(label, placeholder, "&")
+    return label
+}
+
+;# Review prompt + selected text before sending to API
+; Returns Map with keys: cancelled, promptName, templateText, selectedText, extraContext
+ShowReviewBeforeSend(initialPromptName, selectedText) {
+    items := []        ; array of {promptName, label}
+    labels := []       ; drop-down display labels
+
+    for _, promptName in GetPopupMenuPromptNames() {
+        menuText := StripMenuAccelerators(GetSetting(promptName, "menu_text", promptName))
+        items.Push(Map("promptName", promptName, "label", menuText))
+        labels.Push(menuText)
+    }
+
+    ; Fallback: ensure at least initial prompt exists
+    if (items.Length == 0) {
+        items.Push(Map("promptName", initialPromptName, "label", initialPromptName))
+        labels.Push(initialPromptName)
+    }
+
+    ; Pick initial index
+    initialIndex := 1
+    for idx, item in items {
+        if (item["promptName"] == initialPromptName) {
+            initialIndex := idx
+            break
+        }
+    }
+
+    result := Map("cancelled", true)
+
+    ; Use relative layout (no hard-coded y math) so row-count changes never overlap.
+    reviewGui := Gui("", "Review Before Send")
+    reviewGui.MarginX := 12
+    reviewGui.MarginY := 12
+    reviewGui.SetFont("s9", "Segoe UI")
+
+    txtHint := reviewGui.Add("Text", "w720", "Edits not saved to settings.ini")
+
+    reviewGui.Add("Text", "xm w720", "Template")
+    ddl := reviewGui.Add("DropDownList", "xm w720 Choose" initialIndex, labels)
+
+    reviewGui.Add("Text", "xm w720", "Template text")
+    editTemplate := reviewGui.Add("Edit", "xm w720 r5 -Wrap", "")
+
+    reviewGui.Add("Text", "xm w720", "Selected text")
+    editSelected := reviewGui.Add("Edit", "xm w720 r5 -Wrap", selectedText)
+
+    reviewGui.Add("Text", "xm w720", "Extra context")
+    editExtra := reviewGui.Add("Edit", "xm w720 r5 -Wrap", "")
+
+    btnSend := reviewGui.Add("Button", "xm w110 Default", "Send")
+    btnCopy := reviewGui.Add("Button", "x+10 w110", "Copy")
+    btnCancel := reviewGui.Add("Button", "x+10 w110", "Cancel")
+
+    LoadTemplate(idx) {
+        promptName := items[idx]["promptName"]
+        editTemplate.Value := GetSetting(promptName, "prompt", "")
+    }
+
+    ddl.OnEvent("Change", (*) => LoadTemplate(ddl.Value))
+
+    btnSend.OnEvent("Click", (*) => (
+        result["cancelled"] := false,
+        result["promptName"] := items[ddl.Value]["promptName"],
+        result["templateText"] := editTemplate.Value,
+        result["selectedText"] := editSelected.Value,
+        result["extraContext"] := editExtra.Value,
+        reviewGui.Destroy()
+    ))
+
+    btnCopy.OnEvent("Click", (*) => (
+        A_Clipboard := (
+            editTemplate.Value
+            . editSelected.Value
+            . (editExtra.Value != "" ? "`n`nExtra context:`n" editExtra.Value : "")
+            . GetSetting(items[ddl.Value]["promptName"], "prompt_end", "")
+        ),
+        ToolTip("Copied"),
+        SetTimer(() => ToolTip(), -1000)
+    ))
+
+    CancelNow(*) {
+        result["cancelled"] := true
+        reviewGui.Destroy()
+    }
+
+    btnCancel.OnEvent("Click", CancelNow)
+    reviewGui.OnEvent("Escape", CancelNow)
+    reviewGui.OnEvent("Close", CancelNow)
+
+    ; Initial load
+    LoadTemplate(initialIndex)
+
+    reviewGui.Show("AutoSize Center")
+    ; Block until user closes window (Send/Cancel destroys GUI)
+    try {
+        WinWaitClose("ahk_id " reviewGui.Hwnd)
+    } catch {
+        ; ignore
+    }
+    return result
+}
+
 ;# Show popup menu at cursor
 ShowPopupMenu() {
     global _iMenu

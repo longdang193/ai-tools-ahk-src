@@ -495,7 +495,7 @@ HandleResponse(data, mode, promptName, input, provider := "openai") {
 
 ;# Main prompt handler - orchestrates the entire flow
 PromptHandler(promptName, append := false) {
-    global _running, _startTime
+    global _running, _startTime, _activeWin
 
     try {
 
@@ -507,9 +507,6 @@ PromptHandler(promptName, append := false) {
 
         _running := true
         _startTime := A_TickCount
-
-        ShowWaitTooltip()
-        SetSystemCursor(GetSetting("settings", "cursor_wait_file", "wait"))
 
         prompt := GetSetting(promptName, "prompt")
         promptEnd := GetSetting(promptName, "prompt_end")
@@ -532,6 +529,40 @@ PromptHandler(promptName, append := false) {
             RestoreCursor()
             return
         }
+
+        ; Optional: confirm/review before send (global or per-prompt override)
+        confirmSetting := GetSetting(promptName, "confirm_before_send", GetSetting("settings", "confirm_before_send", "false"))
+        confirm := (confirmSetting == 1) || (Type(confirmSetting) == "String" && StrLower(confirmSetting) == "true")
+        if (confirm) {
+            draft := ShowReviewBeforeSend(promptName, input)
+            if (draft.Has("cancelled") && draft["cancelled"]) {
+                ; Restore focus to prior window
+                if (_activeWin != "")
+                    WinActivate _activeWin
+                return
+            }
+
+            promptName := draft["promptName"]
+            prompt := draft["templateText"]
+            input := draft["selectedText"]
+            extraContext := draft["extraContext"]
+
+            ; Re-resolve prompt-scoped settings based on selected template
+            promptEnd := GetSetting(promptName, "prompt_end")
+            mode := GetSetting(promptName, "mode", GetSetting("settings", "default_mode"))
+
+            if (prompt == "" or prompt == "prompt") {
+                MsgBox("Error: Prompt text not configured for '" promptName "'.`n`nPlease check your settings.ini file.", , MSGBOX_ERROR)
+                return
+            }
+
+            if (extraContext != "") {
+                input .= "`n`nExtra context:`n" extraContext
+            }
+        }
+
+        ShowWaitTooltip()
+        SetSystemCursor(GetSetting("settings", "cursor_wait_file", "wait"))
 
         CallAPI(mode, promptName, prompt, input, promptEnd)
 
