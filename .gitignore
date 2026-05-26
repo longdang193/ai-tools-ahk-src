@@ -4,3 +4,5 @@ AI-Tools.exe
 *.log
 .vscode/settings.json
 nul
+
+.worktrees/
