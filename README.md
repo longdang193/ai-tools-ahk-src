@@ -39,11 +39,9 @@ Additionally, the script will prompt you to enter your API key. You can obtain a
 
 The default hotkeys and prompts are set to the following:
 
-`Ctrl+Shift+j` - (Auto-select text - Fix spelling) - Auto selects the current line or paragraph and runs the "Fix Spelling" prompt and replaces it with the corrected version.
+`Ctrl+Shift+k` - (Prompt Menu) - Opens prompt menu to run chosen prompt on currently selected text.
 
-`Ctrl+Shift+k` - (Auto-select text - Prompt Menu) - Auto selects the current line or paragraph and opens the prompt menu.
-
-`Ctrl+Alt+Shift+k` - (Manual-select text - Prompt Menu) - Opens the prompt menu to pick the prompt to run on the selected text.
+Auto-select hotkeys (`hotkey_1`, `hotkey_2`) optional and blank by default in `settings.ini.default`.
 
 
 ## Options
@@ -77,6 +75,11 @@ This tool supports multiple AI API providers:
 - **API Key**: [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
 - **Documentation**: [Gemini API Docs](https://ai.google.dev/gemini-api/docs)
 
+### 9Router (OpenAI-compatible proxy)
+- **Endpoint**: `http://127.0.0.1:20128/v1/chat/completions` (example)
+- **Models**: whatever your 9Router exposes (example: `cx/gpt-5.2`)
+- **API Key**: use your 9Router key (not OpenAI `sk-...`)
+
 ### Configuration
 
 To switch providers, edit the `default_mode` setting in `settings.ini`:
@@ -84,6 +87,7 @@ To switch providers, edit the `default_mode` setting in `settings.ini`:
 ```ini
 [settings]
 default_mode = mode_chat_completion          ; OpenAI (default)
+; default_mode = mode_chat_completion_9router ; 9Router (OpenAI-compatible proxy)
 ; default_mode = mode_chat_completion_azure  ; Azure OpenAI
 ; default_mode = mode_gemini                 ; Google Gemini
 ```
@@ -92,10 +96,16 @@ Individual prompts can override the mode by setting `mode=mode_gemini` in their 
 
 ### Review Before Send
 
-Optionally show a modal review window before any API call:
+Show modal review window before any API call (enabled by default in `settings.ini.default`):
 
 ```ini
 [settings]
+confirm_before_send=true
+```
+
+Disable globally:
+
+```ini
 confirm_before_send=false
 ```
 
